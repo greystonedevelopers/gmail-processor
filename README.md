@@ -5,11 +5,11 @@
 ## About
 
 This package is a _Processor_ for the Go-Guerrilla default backend implementation. Use for this in your project
-if you are using Go-Guerrilla as a package and you would like to add the ability to deliver emails to Maildir folders, using Go-Guerrilla's default backend.
+if you are using Go-Guerrilla as a package and you would like to add the ability to deliver emails via gmail API's using Go-Guerrilla's default backend.
 
 ## Usage
 
-Import `"github.com/flashmob/maildir-processor"` to your Go-guerrilla project.
+Import `"github.com/flashmob/maildir-processor"` or `github.com/phires/go-guerrilla` to your Go-guerrilla project.
 Assuming you have imported the go-guerrilla package already, and all dependencies.
 
 Then, when [using go-guerrilla as a package](https://github.com/flashmob/go-guerrilla/wiki/Using-as-a-package), do something like this
