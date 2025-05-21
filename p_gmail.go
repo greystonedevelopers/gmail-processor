@@ -92,7 +92,7 @@ func (googleMail *GmailProcessor) loadCredentialsFromFile() error {
 	return nil
 }
 
-func Gmail() backends.Decorator {
+var Processor = func() backends.Decorator {
 	var config *GmailProcessorConfig
 	s := &GmailProcessor{}
 
