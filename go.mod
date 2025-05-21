@@ -1,4 +1,4 @@
-module github.com/greystonedevelopers/gmail-processor
+module github.com/greystonedevelopers/gmailprocessor
 
 go 1.24
 
