@@ -73,9 +73,6 @@ func (b *Bridge) Start() {
 
 ```
 
-Note that here we've added MailDir to the end of the save_process config option,
-then used the d.AddProcessor api call to register it. Then configured other settings.
-
 See the configuration section for how to configure.
 
 
