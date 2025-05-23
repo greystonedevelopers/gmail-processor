@@ -1,8 +1,10 @@
 package gmailprocessor
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
+	"fmt"
 	"github.com/phires/go-guerrilla/backends"
 	_ "github.com/phires/go-guerrilla/backends"
 	"github.com/phires/go-guerrilla/mail"
@@ -12,6 +14,7 @@ import (
 	"google.golang.org/api/option"
 	"os"
 	"strings"
+	"time"
 )
 
 // ----------------------------------------------------------------------------------
@@ -44,15 +47,66 @@ import (
 // ----------------------------------------------------------------------------------
 
 type GmailProcessorConfig struct {
-	SAKey      string `json:"sa_key"`
-	MailSender string `json:"mail_sender"`
-	MailScopes string `json:"mail_scopes"`
+	SAKey           string `json:"sa_key"`
+	MailSender      string `json:"mail_sender"`
+	MailScopes      string `json:"mail_scopes"`
+	UseOriginalMail bool   `json:"use_original_mail"`
 }
 
 type GmailProcessor struct {
 	config  *GmailProcessorConfig
 	SAKey   []byte
 	Service *gmail.Service
+}
+
+// ProcessSpecialCase you need to have a body else gmail will throw it. see printer_message.txt
+func (g *GmailProcessor) ProcessSpecialCase(e *mail.Envelope) []byte {
+	bytestr := bytes.NewBuffer(make([]byte, 0))
+	//bytestr.WriteString(fmt.Sprintf("Subject: %s", e.Header.Get("Subject")))
+	//bytestr.WriteString("\r\n")
+	//bytestr.WriteString(fmt.Sprintf("Sender: %s", e.Header.Get("Sender")))
+	//bytestr.WriteString("\r\n")
+	//bytestr.WriteString(fmt.Sprintf("From: %s", e.Header.Get("From")))
+	//bytestr.WriteString("\r\n")
+	//bytestr.WriteString(fmt.Sprintf("Date: %s", e.Header.Get("Date")))
+	//bytestr.WriteString("\r\n")
+	//bytestr.WriteString(fmt.Sprintf("To: %s", e.Header.Get("To")))
+	//bytestr.WriteString("\r\n")
+	//bytestr.WriteString(fmt.Sprintf("Message-ID: %s", e.Header.Get("Message-Id")))
+	//bytestr.WriteString("\r\n")
+	//bytestr.WriteString(fmt.Sprintf("MIME-Version: %s", e.Header.Get("MIME-Version")))
+	//bytestr.WriteString("\r\n")
+	//bytestr.WriteString(fmt.Sprintf("Content-Type: %s", "multipart/mixed; boundary=\"=-zwG7Bugek9MSdvyfOxkt\"")) //e.Header.Get("Content-Type")))
+	//bytestr.WriteString("\r\n")
+	////bytestr.WriteString(fmt.Sprintf("Content-Transfer-Encoding: %s", e.Header.Get("Content-Transfer-Encoding")))
+	////bytestr.WriteString("\r\n")
+	//bytestr.WriteString("\r\n")
+	////bytestr.WriteString("--KONICA_MINOLTA_Internet_Fax_Boundary")
+	//
+	//bytestr.WriteString("--=-zwG7Bugek9MSdvyfOxkt")
+	//bytestr.WriteString("\r\n")
+	//bytestr.WriteString("Content-Type: application/pdf; ")
+	//bytestr.WriteString("name=\"SKMBT_C364e25052208080.pdf")
+	//bytestr.WriteString("\r\n")
+	//bytestr.WriteString("Content-Disposition: attachment; ")
+	//bytestr.WriteString("filename=\"SKMBT_C364e25052208080.pdf\"")
+	//bytestr.WriteString("\r\n")
+	//bytestr.WriteString("Content-Transfer-Encoding: base64")
+	//bytestr.WriteString("\r\n")
+	//bytestr.WriteString("\r\n")
+
+	fileData, errRead := os.ReadFile("printer_message.txt")
+	//	fileData, errRead := os.ReadFile("mailrx_20250523091422.txt")
+	if errRead != nil {
+		backends.Log().Errorf("Error reading file: %v", errRead)
+	}
+	bytestr.Write(fileData)
+
+	//bytestr.WriteString("hello world")
+	//bytestr.WriteString("\r\n")
+	os.WriteFile("mail.txt", bytestr.Bytes(), 0644)
+
+	return bytestr.Bytes()
 }
 
 func (googleMail *GmailProcessor) loadCredentialsFromFile() error {
@@ -129,14 +183,28 @@ var Processor = func() backends.Decorator {
 					e.QueuedId = e.Hashes[0]
 				}
 				backends.Log().Infof("Hash: %s ", hash)
+				var encodedMessage string
 
-				msg := new(gmail.Message)
-				encodedMessage := base64.URLEncoding.EncodeToString(e.Data.Bytes())
-				msg.Raw = encodedMessage
-				//backends.Log().Info(encodedMessage)
+				file, errCreate := os.Create(fmt.Sprintf("mailrx_%s.txt", time.Now().Format("20060102150405")))
+				if errCreate != nil {
+					return backends.NewResult(response.Canned.FailBackendTimeout), errCreate
+				}
 
-				_, errSendMail := s.Service.Users.Messages.Send("me", msg).Do()
+				file.Write(e.Data.Bytes())
+				file.Close()
+
+				gmailMsg := new(gmail.Message)
+				if s.config.UseOriginalMail {
+					encodedMessage = base64.URLEncoding.EncodeToString(e.Data.Bytes())
+				} else {
+					encodedMessage = base64.URLEncoding.EncodeToString(s.ProcessSpecialCase(e))
+				}
+				gmailMsg.Raw = encodedMessage
+				googleMessage, errSendMail := s.Service.Users.Messages.Send("me", gmailMsg).Do()
 				if errSendMail != nil {
+					if googleMessage != nil {
+						backends.Log().Debugf("%v", googleMessage)
+					}
 					backends.Log().Errorf("Error sending mail: %v", errSendMail)
 					return backends.NewResult(response.Canned.FailBackendTimeout), errSendMail
 				}
