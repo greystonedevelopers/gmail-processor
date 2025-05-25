@@ -61,52 +61,109 @@ type GmailProcessor struct {
 
 // ProcessSpecialCase you need to have a body else gmail will throw it. see printer_message.txt
 func (g *GmailProcessor) ProcessSpecialCase(e *mail.Envelope) []byte {
-	bytestr := bytes.NewBuffer(make([]byte, 0))
-	//bytestr.WriteString(fmt.Sprintf("Subject: %s", e.Header.Get("Subject")))
-	//bytestr.WriteString("\r\n")
-	//bytestr.WriteString(fmt.Sprintf("Sender: %s", e.Header.Get("Sender")))
-	//bytestr.WriteString("\r\n")
-	//bytestr.WriteString(fmt.Sprintf("From: %s", e.Header.Get("From")))
-	//bytestr.WriteString("\r\n")
-	//bytestr.WriteString(fmt.Sprintf("Date: %s", e.Header.Get("Date")))
-	//bytestr.WriteString("\r\n")
-	//bytestr.WriteString(fmt.Sprintf("To: %s", e.Header.Get("To")))
-	//bytestr.WriteString("\r\n")
-	//bytestr.WriteString(fmt.Sprintf("Message-ID: %s", e.Header.Get("Message-Id")))
-	//bytestr.WriteString("\r\n")
-	//bytestr.WriteString(fmt.Sprintf("MIME-Version: %s", e.Header.Get("MIME-Version")))
-	//bytestr.WriteString("\r\n")
-	//bytestr.WriteString(fmt.Sprintf("Content-Type: %s", "multipart/mixed; boundary=\"=-zwG7Bugek9MSdvyfOxkt\"")) //e.Header.Get("Content-Type")))
-	//bytestr.WriteString("\r\n")
-	////bytestr.WriteString(fmt.Sprintf("Content-Transfer-Encoding: %s", e.Header.Get("Content-Transfer-Encoding")))
-	////bytestr.WriteString("\r\n")
-	//bytestr.WriteString("\r\n")
-	////bytestr.WriteString("--KONICA_MINOLTA_Internet_Fax_Boundary")
-	//
-	//bytestr.WriteString("--=-zwG7Bugek9MSdvyfOxkt")
-	//bytestr.WriteString("\r\n")
-	//bytestr.WriteString("Content-Type: application/pdf; ")
-	//bytestr.WriteString("name=\"SKMBT_C364e25052208080.pdf")
-	//bytestr.WriteString("\r\n")
-	//bytestr.WriteString("Content-Disposition: attachment; ")
-	//bytestr.WriteString("filename=\"SKMBT_C364e25052208080.pdf\"")
-	//bytestr.WriteString("\r\n")
-	//bytestr.WriteString("Content-Transfer-Encoding: base64")
-	//bytestr.WriteString("\r\n")
-	//bytestr.WriteString("\r\n")
+	bufferModified := bytes.NewBuffer(e.Data.Bytes())
+	//bufferModified := bytes.NewBuffer(make([]byte, 0))
 
-	fileData, errRead := os.ReadFile("printer_message.txt")
-	//	fileData, errRead := os.ReadFile("mailrx_20250523091422.txt")
-	if errRead != nil {
-		backends.Log().Errorf("Error reading file: %v", errRead)
+	// we need to see if there is a "body" message
+
+	//e.Header.Set("Content-Type", "multipart/mixed; boundary=\"KONICA_MINOLTA_Internet_Fax_Boundary\"")
+
+	//fileData, errRead := os.ReadFile("printer_message.txt")
+	////	fileData, errRead := os.ReadFile("mailrx_20250523091422.txt")
+	//if errRead != nil {
+	//	backends.Log().Errorf("Error reading file: %v", errRead)
+	//}
+	//bufferModified.Write(fileData)
+
+	contentTypeHeader := e.Header.Get("Content-Type")
+
+	if strings.Contains(strings.ToLower(contentTypeHeader), "multipart/mixed") {
+		contentTypeHeaderParts := strings.Split(contentTypeHeader, ";")
+		for _, part := range contentTypeHeaderParts {
+			if strings.Contains(part, "boundary=") {
+				foundBody := false
+				boundary := strings.Split(part, "=")[1]
+				boundary = strings.ReplaceAll(boundary, "\"", "")
+
+				// look for the boundry and the content type text/plain or text/html
+				boundaryRecords := strings.Split(bufferModified.String(), "--"+boundary)
+
+				for _, record := range boundaryRecords {
+					backends.Log().Debug(record)
+					if strings.Contains(record, "Content-Type: text/plain") {
+						backends.Log().Debugf("found header: %s", record)
+						foundBody = true
+						break
+					}
+				}
+				addedBody := bytes.NewBuffer(make([]byte, 0))
+				if !foundBody {
+					// we need to add a body. Lets see if we add it to the end.
+					addedBody.WriteString("\r\n")
+					addedBody.WriteString("--" + strings.ReplaceAll(boundary, "\"", ""))
+					addedBody.WriteString("\r\n")
+					addedBody.WriteString("Content-Type: text/plain; charset=\"us-ascii\"")
+					addedBody.WriteString("\r\n")
+					addedBody.WriteString("\r\n")
+					addedBody.WriteString("Please find your attachment")
+					addedBody.WriteString("\r\n")
+					// rebuild
+					bufferModified.Reset()
+					for index, record := range boundaryRecords {
+						if index == 0 {
+							bufferModified.WriteString(record)
+							bufferModified.WriteString(addedBody.String())
+						} else {
+							bufferModified.WriteString("\r\n")
+							bufferModified.WriteString("--" + strings.ReplaceAll(boundary, "\"", ""))
+							bufferModified.WriteString(record)
+						}
+					}
+				}
+			}
+		}
 	}
-	bytestr.Write(fileData)
+	os.WriteFile("mail.txt", bufferModified.Bytes(), 0644)
+	return bufferModified.Bytes()
 
-	//bytestr.WriteString("hello world")
-	//bytestr.WriteString("\r\n")
-	os.WriteFile("mail.txt", bytestr.Bytes(), 0644)
+	//bufferModified.WriteString(fmt.Sprintf("Subject: %s", e.Header.Get("Subject")))
+	//bufferModified.WriteString("\r\n")
+	//bufferModified.WriteString(fmt.Sprintf("Sender: %s", e.Header.Get("Sender")))
+	//bufferModified.WriteString("\r\n")
+	//bufferModified.WriteString(fmt.Sprintf("From: %s", e.Header.Get("From")))
+	//bufferModified.WriteString("\r\n")
+	//bufferModified.WriteString(fmt.Sprintf("Date: %s", e.Header.Get("Date")))
+	//bufferModified.WriteString("\r\n")
+	//bufferModified.WriteString(fmt.Sprintf("To: %s", e.Header.Get("To")))
+	//bufferModified.WriteString("\r\n")
+	//bufferModified.WriteString(fmt.Sprintf("Message-ID: %s", e.Header.Get("Message-Id")))
+	//bufferModified.WriteString("\r\n")
+	//bufferModified.WriteString(fmt.Sprintf("MIME-Version: %s", e.Header.Get("MIME-Version")))
+	//bufferModified.WriteString("\r\n")
+	//bufferModified.WriteString(fmt.Sprintf("Content-Type: %s", "multipart/mixed; boundary=\"=-zwG7Bugek9MSdvyfOxkt\"")) //e.Header.Get("Content-Type")))
+	//bufferModified.WriteString("\r\n")
+	////bufferModified.WriteString(fmt.Sprintf("Content-Transfer-Encoding: %s", e.Header.Get("Content-Transfer-Encoding")))
+	////bufferModified.WriteString("\r\n")
+	//bufferModified.WriteString("\r\n")
+	////bufferModified.WriteString("--KONICA_MINOLTA_Internet_Fax_Boundary")
+	//
+	//bufferModified.WriteString("--=-zwG7Bugek9MSdvyfOxkt")
+	//bufferModified.WriteString("\r\n")
+	//bufferModified.WriteString("Content-Type: application/pdf; ")
+	//bufferModified.WriteString("name=\"SKMBT_C364e25052208080.pdf")
+	//bufferModified.WriteString("\r\n")
+	//bufferModified.WriteString("Content-Disposition: attachment; ")
+	//bufferModified.WriteString("filename=\"SKMBT_C364e25052208080.pdf\"")
+	//bufferModified.WriteString("\r\n")
+	//bufferModified.WriteString("Content-Transfer-Encoding: base64")
+	//bufferModified.WriteString("\r\n")
+	//bufferModified.WriteString("\r\n")
 
-	return bytestr.Bytes()
+	//bufferModified.WriteString("hello world")
+	//bufferModified.WriteString("\r\n")
+
+	//
+	//return bufferModified.Bytes()
 }
 
 func (googleMail *GmailProcessor) loadCredentialsFromFile() error {
