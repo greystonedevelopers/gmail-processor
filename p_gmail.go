@@ -47,10 +47,11 @@ import (
 // ----------------------------------------------------------------------------------
 
 type GmailProcessorConfig struct {
-	SAKey           string `json:"sa_key"`
-	MailSender      string `json:"mail_sender"`
-	MailScopes      string `json:"mail_scopes"`
-	UseOriginalMail bool   `json:"use_original_mail"`
+	SAKey                 string `json:"sa_key"`
+	MailSender            string `json:"mail_sender"`
+	MailScopes            string `json:"mail_scopes"`
+	UseOriginalMail       bool   `json:"use_original_mail"`
+	AdditionalBodyMessage string `json:"additional_body_message"`
 }
 
 type GmailProcessor struct {
@@ -105,7 +106,7 @@ func (g *GmailProcessor) ProcessSpecialCase(e *mail.Envelope) []byte {
 					addedBody.WriteString("Content-Type: text/plain; charset=\"us-ascii\"")
 					addedBody.WriteString("\r\n")
 					addedBody.WriteString("\r\n")
-					addedBody.WriteString("Please find your attachment")
+					addedBody.WriteString(g.config.AdditionalBodyMessage)
 					addedBody.WriteString("\r\n")
 					// rebuild
 					bufferModified.Reset()
