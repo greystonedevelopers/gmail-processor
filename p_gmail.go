@@ -52,6 +52,7 @@ type GmailProcessorConfig struct {
 	MailScopes            string `json:"mail_scopes"`
 	UseOriginalMail       bool   `json:"use_original_mail"`
 	AdditionalBodyMessage string `json:"additional_body_message"`
+	SaveDebugMails        bool   `json:"save_debug_mails"`
 }
 
 type GmailProcessor struct {
@@ -63,18 +64,6 @@ type GmailProcessor struct {
 // ProcessSpecialCase you need to have a body else gmail will throw it. see printer_message.txt
 func (g *GmailProcessor) ProcessSpecialCase(e *mail.Envelope) []byte {
 	bufferModified := bytes.NewBuffer(e.Data.Bytes())
-	//bufferModified := bytes.NewBuffer(make([]byte, 0))
-
-	// we need to see if there is a "body" message
-
-	//e.Header.Set("Content-Type", "multipart/mixed; boundary=\"KONICA_MINOLTA_Internet_Fax_Boundary\"")
-
-	//fileData, errRead := os.ReadFile("printer_message.txt")
-	////	fileData, errRead := os.ReadFile("mailrx_20250523091422.txt")
-	//if errRead != nil {
-	//	backends.Log().Errorf("Error reading file: %v", errRead)
-	//}
-	//bufferModified.Write(fileData)
 
 	contentTypeHeader := e.Header.Get("Content-Type")
 
@@ -124,47 +113,10 @@ func (g *GmailProcessor) ProcessSpecialCase(e *mail.Envelope) []byte {
 			}
 		}
 	}
-	os.WriteFile("mail.txt", bufferModified.Bytes(), 0644)
+	if g.config.SaveDebugMails {
+		os.WriteFile("mail.txt", bufferModified.Bytes(), 0644)
+	}
 	return bufferModified.Bytes()
-
-	//bufferModified.WriteString(fmt.Sprintf("Subject: %s", e.Header.Get("Subject")))
-	//bufferModified.WriteString("\r\n")
-	//bufferModified.WriteString(fmt.Sprintf("Sender: %s", e.Header.Get("Sender")))
-	//bufferModified.WriteString("\r\n")
-	//bufferModified.WriteString(fmt.Sprintf("From: %s", e.Header.Get("From")))
-	//bufferModified.WriteString("\r\n")
-	//bufferModified.WriteString(fmt.Sprintf("Date: %s", e.Header.Get("Date")))
-	//bufferModified.WriteString("\r\n")
-	//bufferModified.WriteString(fmt.Sprintf("To: %s", e.Header.Get("To")))
-	//bufferModified.WriteString("\r\n")
-	//bufferModified.WriteString(fmt.Sprintf("Message-ID: %s", e.Header.Get("Message-Id")))
-	//bufferModified.WriteString("\r\n")
-	//bufferModified.WriteString(fmt.Sprintf("MIME-Version: %s", e.Header.Get("MIME-Version")))
-	//bufferModified.WriteString("\r\n")
-	//bufferModified.WriteString(fmt.Sprintf("Content-Type: %s", "multipart/mixed; boundary=\"=-zwG7Bugek9MSdvyfOxkt\"")) //e.Header.Get("Content-Type")))
-	//bufferModified.WriteString("\r\n")
-	////bufferModified.WriteString(fmt.Sprintf("Content-Transfer-Encoding: %s", e.Header.Get("Content-Transfer-Encoding")))
-	////bufferModified.WriteString("\r\n")
-	//bufferModified.WriteString("\r\n")
-	////bufferModified.WriteString("--KONICA_MINOLTA_Internet_Fax_Boundary")
-	//
-	//bufferModified.WriteString("--=-zwG7Bugek9MSdvyfOxkt")
-	//bufferModified.WriteString("\r\n")
-	//bufferModified.WriteString("Content-Type: application/pdf; ")
-	//bufferModified.WriteString("name=\"SKMBT_C364e25052208080.pdf")
-	//bufferModified.WriteString("\r\n")
-	//bufferModified.WriteString("Content-Disposition: attachment; ")
-	//bufferModified.WriteString("filename=\"SKMBT_C364e25052208080.pdf\"")
-	//bufferModified.WriteString("\r\n")
-	//bufferModified.WriteString("Content-Transfer-Encoding: base64")
-	//bufferModified.WriteString("\r\n")
-	//bufferModified.WriteString("\r\n")
-
-	//bufferModified.WriteString("hello world")
-	//bufferModified.WriteString("\r\n")
-
-	//
-	//return bufferModified.Bytes()
 }
 
 func (googleMail *GmailProcessor) loadCredentialsFromFile() error {
@@ -243,13 +195,15 @@ var Processor = func() backends.Decorator {
 				backends.Log().Infof("Hash: %s ", hash)
 				var encodedMessage string
 
-				file, errCreate := os.Create(fmt.Sprintf("mailrx_%s.txt", time.Now().Format("20060102150405")))
-				if errCreate != nil {
-					return backends.NewResult(response.Canned.FailBackendTimeout), errCreate
-				}
+				if s.config.SaveDebugMails {
+					file, errCreate := os.Create(fmt.Sprintf("mailrx_%s.txt", time.Now().Format("20060102150405")))
+					if errCreate != nil {
+						return backends.NewResult(response.Canned.FailBackendTimeout), errCreate
+					}
 
-				file.Write(e.Data.Bytes())
-				file.Close()
+					file.Write(e.Data.Bytes())
+					file.Close()
+				}
 
 				gmailMsg := new(gmail.Message)
 				if s.config.UseOriginalMail {

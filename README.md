@@ -92,7 +92,8 @@ The following values are required in your `backend_config` section of your JSON 
     -   save_process - type string - backend processes to call example -  HeadersParser|Header|Hasher|Gmail|Debugger
     -   use_original_mail type bool - use this option to send the raw data straight to google. 
                                     if false you have the ability to manipluate aything on the message
-    -   additional_body_message - type string - Basic message body to insert if you need one. if the above bool is false 
+    -   additional_body_message - type string - Basic message body to insert if you need one. if the above bool is false
+    -   save_debug_mails - type bool - use this to dump original and revised email to disk.
 
 
 ## Example
