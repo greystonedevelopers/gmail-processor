@@ -79,7 +79,9 @@ func (g *GmailProcessor) ProcessSpecialCase(e *mail.Envelope) []byte {
 				boundaryRecords := strings.Split(bufferModified.String(), "--"+boundary)
 
 				for _, record := range boundaryRecords {
-					backends.Log().Debug(record)
+					if g.config.SaveDebugMails {
+						backends.Log().Debug(record)
+					}
 					if strings.Contains(record, "Content-Type: text/plain") {
 						backends.Log().Debugf("found header: %s", record)
 						foundBody = true
