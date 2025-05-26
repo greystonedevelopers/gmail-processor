@@ -29,7 +29,10 @@ Then, when [using go-guerrilla as a package](https://github.com/flashmob/go-guer
     "save_workers_size":  3,
     "sa_key" : "gsgmailapi-9e49eeb1e33c.json",
     "mail_sender": "printer@domain.co.za",
-    "mail_scopes" : "https://mail.google.com/"
+    "mail_scopes" : "https://mail.google.com/",
+    "use_original_mail": false,
+    "additional_body_message": "Please find your attachment",
+    "save_debug_mails": false
   },
   "servers" : [
     {
